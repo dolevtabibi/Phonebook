@@ -1,0 +1,11 @@
+D:\GitHub\Phonebook_APP\Phonebook_APP\obj\Debug\Phonebook_APP.csproj.AssemblyReference.cache
+D:\GitHub\Phonebook_APP\Phonebook_APP\obj\Debug\Phonebook_APP.EditPersonForm.resources
+D:\GitHub\Phonebook_APP\Phonebook_APP\obj\Debug\Phonebook_APP.Properties.Resources.resources
+D:\GitHub\Phonebook_APP\Phonebook_APP\obj\Debug\Phonebook_APP.csproj.GenerateResource.cache
+D:\GitHub\Phonebook_APP\Phonebook_APP\obj\Debug\Phonebook_APP.csproj.CoreCompileInputs.cache
+D:\GitHub\Phonebook_APP\Phonebook_APP\bin\Debug\Phonebook_APP.exe.config
+D:\GitHub\Phonebook_APP\Phonebook_APP\bin\Debug\Phonebook_APP.exe
+D:\GitHub\Phonebook_APP\Phonebook_APP\bin\Debug\Phonebook_APP.pdb
+D:\GitHub\Phonebook_APP\Phonebook_APP\obj\Debug\Phonebook_APP.FrontPage.resources
+D:\GitHub\Phonebook_APP\Phonebook_APP\obj\Debug\Phonebook_APP.exe
+D:\GitHub\Phonebook_APP\Phonebook_APP\obj\Debug\Phonebook_APP.pdb
