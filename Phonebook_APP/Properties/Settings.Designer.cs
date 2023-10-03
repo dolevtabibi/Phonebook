@@ -33,5 +33,15 @@ namespace Phonebook_APP.Properties {
                 return ((string)(this["Phonebook_DatabaseConnectionString"]));
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.SpecialSettingAttribute(global::System.Configuration.SpecialSetting.WebServiceUrl)]
+        [global::System.Configuration.DefaultSettingValueAttribute("https://localhost:44329/PersonService.asmx")]
+        public string Phonebook_APP_CRUDService_PersonService {
+            get {
+                return ((string)(this["Phonebook_APP_CRUDService_PersonService"]));
+            }
+        }
     }
 }

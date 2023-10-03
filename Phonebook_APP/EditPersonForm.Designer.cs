@@ -28,11 +28,13 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.cancelButton = new System.Windows.Forms.Button();
             this.confirmButton = new System.Windows.Forms.Button();
             this.deleteButton = new System.Windows.Forms.Button();
             this.uploadButton = new System.Windows.Forms.Button();
             this.personPictureBox = new System.Windows.Forms.PictureBox();
+            this.personGridDataBindingSource = new System.Windows.Forms.BindingSource(this.components);
             this.cityTextBox = new System.Windows.Forms.TextBox();
             this.addressTextBox = new System.Windows.Forms.TextBox();
             this.dateTextBox = new System.Windows.Forms.TextBox();
@@ -45,7 +47,10 @@
             this.idLabel = new System.Windows.Forms.Label();
             this.lastNameLabel = new System.Windows.Forms.Label();
             this.firstNameLabel = new System.Windows.Forms.Label();
+            this.personBindingSource = new System.Windows.Forms.BindingSource(this.components);
             ((System.ComponentModel.ISupportInitialize)(this.personPictureBox)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.personGridDataBindingSource)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.personBindingSource)).BeginInit();
             this.SuspendLayout();
             // 
             // cancelButton
@@ -90,6 +95,7 @@
             // 
             // personPictureBox
             // 
+            this.personPictureBox.DataBindings.Add(new System.Windows.Forms.Binding("Tag", this.personBindingSource, "Picture", true));
             this.personPictureBox.Location = new System.Drawing.Point(56, 29);
             this.personPictureBox.Name = "personPictureBox";
             this.personPictureBox.Size = new System.Drawing.Size(190, 150);
@@ -99,6 +105,7 @@
             // 
             // cityTextBox
             // 
+            this.cityTextBox.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.personBindingSource, "City", true));
             this.cityTextBox.Location = new System.Drawing.Point(521, 261);
             this.cityTextBox.Name = "cityTextBox";
             this.cityTextBox.Size = new System.Drawing.Size(100, 20);
@@ -106,6 +113,7 @@
             // 
             // addressTextBox
             // 
+            this.addressTextBox.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.personBindingSource, "Address", true));
             this.addressTextBox.Location = new System.Drawing.Point(521, 208);
             this.addressTextBox.Name = "addressTextBox";
             this.addressTextBox.Size = new System.Drawing.Size(100, 20);
@@ -113,6 +121,7 @@
             // 
             // dateTextBox
             // 
+            this.dateTextBox.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.personBindingSource, "DateOfBirth", true));
             this.dateTextBox.Location = new System.Drawing.Point(521, 159);
             this.dateTextBox.Name = "dateTextBox";
             this.dateTextBox.Size = new System.Drawing.Size(100, 20);
@@ -120,6 +129,7 @@
             // 
             // idTextBox
             // 
+            this.idTextBox.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.personBindingSource, "Id", true));
             this.idTextBox.Location = new System.Drawing.Point(521, 111);
             this.idTextBox.Name = "idTextBox";
             this.idTextBox.Size = new System.Drawing.Size(100, 20);
@@ -127,6 +137,7 @@
             // 
             // lastNameTextBox
             // 
+            this.lastNameTextBox.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.personBindingSource, "LastName", true));
             this.lastNameTextBox.Location = new System.Drawing.Point(521, 69);
             this.lastNameTextBox.Name = "lastNameTextBox";
             this.lastNameTextBox.Size = new System.Drawing.Size(100, 20);
@@ -134,6 +145,7 @@
             // 
             // firstNameTextBox
             // 
+            this.firstNameTextBox.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.personBindingSource, "FirstName", true));
             this.firstNameTextBox.Location = new System.Drawing.Point(521, 29);
             this.firstNameTextBox.Name = "firstNameTextBox";
             this.firstNameTextBox.Size = new System.Drawing.Size(100, 20);
@@ -193,6 +205,10 @@
             this.firstNameLabel.TabIndex = 18;
             this.firstNameLabel.Text = "שם פרטי";
             // 
+            // personBindingSource
+            // 
+            this.personBindingSource.DataSource = typeof(Phonebook_APP.CRUDService.Person);
+            // 
             // EditPersonForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -218,6 +234,8 @@
             this.Name = "EditPersonForm";
             this.Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)(this.personPictureBox)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.personGridDataBindingSource)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.personBindingSource)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -242,5 +260,7 @@
         private System.Windows.Forms.Label idLabel;
         private System.Windows.Forms.Label lastNameLabel;
         private System.Windows.Forms.Label firstNameLabel;
+        private System.Windows.Forms.BindingSource personGridDataBindingSource;
+        private System.Windows.Forms.BindingSource personBindingSource;
     }
 }

@@ -1,54 +1,66 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using Phonebook_APP.CRUDService;
+using System;
 using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Phonebook_APP
 {
     public partial class EditPersonForm : Form
     {
-        private readonly DataRowView _personData;
-        private readonly SqlDataAdapter _adapter;
-        private readonly DataTable _dataTable;
-        private byte[] _pictureData;
-        private bool newPerson = false;
-        private string _originalPersonId;
-        private readonly string _connectionString;
+        private EntityState entityState;
+        private readonly string connectionString;
+        private readonly PersonService client;
+        private readonly int p_id;
 
-        public EditPersonForm()
+        public EditPersonForm(EntityState state, Person personData)
         {
             InitializeComponent();
-            _connectionString = ConfigurationManager.ConnectionStrings["Phonebook.Properties.Settings.Phonebook_DatabaseConnectionString"].ConnectionString;
-            personPictureBox.Image = Properties.Resources.defaultPicture;
-            newPerson = true;
-        }
-        public EditPersonForm(DataRowView personData)
-        {
-            InitializeComponent();
-            _connectionString = ConfigurationManager.ConnectionStrings["Phonebook_APP.Properties.Settings.Phonebook_DatabaseConnectionString"].ConnectionString;
-            _personData = personData;
-
-            // Populate the form controls with personData
-            firstNameTextBox.Text = _personData["FirstName"].ToString();
-            lastNameTextBox.Text = _personData["LastName"].ToString();
-            cityTextBox.Text = _personData["City"].ToString();
-            _originalPersonId = idTextBox.Text = _personData["Id"].ToString();
-            dateTextBox.Text = ((DateTime)_personData["DateOfBirth"]).ToString("yyyy-MM-dd");
-            addressTextBox.Text = _personData["Address"].ToString();
-            byte[] pictureData = (byte[])_personData["Picture"];
-            this._pictureData = pictureData;
-            using (MemoryStream ms = new MemoryStream(_pictureData))
+            try
             {
-                personPictureBox.Image = Image.FromStream(ms);
+                client = new PersonService();
+            }
+            catch (Exception ex)
+            {
+                MetroFramework.MetroMessageBox.Show(this, $"Error initializing client:{ ex.Message}");
+                // Log the exception if necessary
+            }
+
+            this.entityState = state;
+            InitializeFormData(personData);
+            this.p_id = personData.P_Id;
+            connectionString = ConfigurationManager.ConnectionStrings["Phonebook_APP.Properties.Settings.Phonebook_DatabaseConnectionString"].ConnectionString;
+        }
+
+        private void InitializeFormData(Person personData)
+        {
+            firstNameTextBox.Text = personData.FirstName;
+            lastNameTextBox.Text = personData.LastName;
+            addressTextBox.Text = personData.Address;
+
+            if (personData.DateOfBirth.HasValue)
+            {
+                dateTextBox.Text = personData.DateOfBirth.Value.ToString("MM/dd/yyyy");
+            }
+            else
+            {
+                MetroFramework.MetroMessageBox.Show(this, "Invalid date format. Please enter the date in MM/dd/yyyy format.");
+            }
+
+            idTextBox.Text = personData.Id.ToString();
+            cityTextBox.Text = personData.City;
+
+            if (personData.Picture != null && personData.Picture.Length > 0)
+            {
+                personPictureBox.Image = ByteToImage(personData.Picture);
+            }
+            else
+            {
+                personPictureBox.Image = Properties.Resources.defaultPicture;
             }
         }
 
@@ -59,197 +71,195 @@ namespace Phonebook_APP
 
         private void confirmButton_Click(object sender, EventArgs e)
         {
-            if (_pictureData == null)
+            personGridDataBindingSource.EndEdit();
+
+            if (entityState == EntityState.Changed) // Update person
             {
-                Bitmap defaultBitmap = Properties.Resources.defaultPicture;
-                using (MemoryStream stream = new MemoryStream())
+                UpdatePerson();
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+
+            }
+            else if (entityState == EntityState.Added) // New person
+            {
+                if (AddNewPerson()) // Check if the new person was added successfully
                 {
-                    defaultBitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
-                    _pictureData = stream.ToArray();
+                    this.DialogResult = DialogResult.OK;
+                    this.Close();
+                }
+                else
+                {
+                    // Show a message indicating the error, if necessary
+                }
+            }
+        }
+
+
+        private void UpdatePerson()
+        {
+            if (ValidateInputs())
+            {
+                if (TryParseDate(dateTextBox.Text.Trim(), out DateTime parsedDate))
+                {
+                    int.TryParse(idTextBox.Text, out int personId);
+                    string firstName = firstNameTextBox.Text;
+                    string lastName = lastNameTextBox.Text;
+                    string address = addressTextBox.Text;
+                    string city = cityTextBox.Text;
+
+                    byte[] picture = ImageToByteArray(personPictureBox.Image);
+
+                    // Pass P_Id as a parameter to your Update method
+                    Person updatedPerson = new Person
+                    {
+                        P_Id = this.p_id, // P_Id identifies the person in the database
+                        FirstName = firstName,
+                        LastName = lastName,
+                        Id = personId,
+                        DateOfBirth = parsedDate,
+                        Address = address,
+                        City = city,
+                        Picture = picture
+                    };
+
+                    try
+                    {
+                        if (client.Update(updatedPerson))
+                        {
+                            MetroFramework.MetroMessageBox.Show(this, "Person information updated successfully");
+                            return; // Indicate success and exit method
+                        }
+                        else
+                        {
+                            MetroFramework.MetroMessageBox.Show(this, "Failed to update person information. Please try again.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Handle exceptions specific to the update operation
+                        MetroFramework.MetroMessageBox.Show(this, $"Error updating person information: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    MetroFramework.MetroMessageBox.Show(this, "Invalid input. Please enter valid values for Person Id and Date of Birth.");
+                }
+            }
+            else
+            {
+                MetroFramework.MetroMessageBox.Show(this, "Invalid input. Please check your input values and try again.");
+            }
+        }
+
+
+
+        private bool AddNewPerson()
+        {
+            if (ValidateInputs())
+            {
+                if (TryParseDate(dateTextBox.Text.Trim(), out DateTime parsedDate))
+                {
+                    byte[] picture = ImageToByteArray(personPictureBox.Image);
+
+                    Person personToAdd = new Person
+                    {
+                        FirstName = firstNameTextBox.Text,
+                        LastName = lastNameTextBox.Text,
+                        Address = addressTextBox.Text,
+                        City = cityTextBox.Text,
+                        Id = int.TryParse(idTextBox.Text, out int id) ? id : 0,
+                        DateOfBirth = parsedDate,
+                        Picture = picture
+                    };
+
+                    try
+                    {
+                        client.Insert(personToAdd);
+                        MetroFramework.MetroMessageBox.Show(this, "New Person information Added successfully");
+                        return true; // Indicate success
+                    }
+                    catch (Exception ex)
+                    {
+                        MetroFramework.MetroMessageBox.Show(this, $"Error adding new person: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return false; // Indicate failure
+                    }
+                }
+                else
+                {
+                    MetroFramework.MetroMessageBox.Show(this, "Invalid date format. Please enter the date in MM/dd/yyyy format.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false; // Indicate failure
                 }
             }
 
-            if (!int.TryParse(idTextBox.Text, out int newId))
+            return false; // Indicate failure if inputs are not valid
+        }
+
+
+
+        private bool ValidateInputs()
+        {
+            if (string.IsNullOrEmpty(firstNameTextBox.Text) || string.IsNullOrEmpty(lastNameTextBox.Text) ||
+                string.IsNullOrEmpty(addressTextBox.Text) || string.IsNullOrEmpty(cityTextBox.Text))
             {
-                MessageBox.Show("Invalid ID format. Please enter a valid numeric ID.");
-                return;
+                MessageBox.Show("All fields are required.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
-
-            using (SqlConnection connection = new SqlConnection(_connectionString))
-            {
-                connection.Open();
-
-                if (newPerson)
-                {
-                    string checkIdQuery = "SELECT COUNT(*) FROM dbo.PersonGridData WHERE Id = @Id";
-                    using (SqlCommand checkIdCmd = new SqlCommand(checkIdQuery, connection))
-                    {
-                        checkIdCmd.Parameters.Add("@Id", SqlDbType.Int).Value = newId;
-                        int existingIdCount = (int)checkIdCmd.ExecuteScalar();
-
-                        if (existingIdCount > 0)
-                        {
-                            MessageBox.Show("ID already exists in the database. Please enter a different ID.");
-                            return;
-                        }
-                    }
-
-                    string insertQuery = "INSERT INTO dbo.PersonGridData (Picture, FirstName, LastName, Id, City, Address, DateOfBirth) VALUES (@Image, @FirstName, @LastName, @Id, @City, @Address, @DateOfBirth)";
-
-                    using (SqlCommand cmd = new SqlCommand(insertQuery, connection))
-                    {
-                        cmd.Parameters.Add("@Image", SqlDbType.VarBinary).Value = _pictureData;
-                        cmd.Parameters.Add("@FirstName", SqlDbType.NVarChar).Value = firstNameTextBox.Text;
-                        cmd.Parameters.Add("@LastName", SqlDbType.NVarChar).Value = lastNameTextBox.Text;
-                        cmd.Parameters.Add("@Id", SqlDbType.Int).Value = newId;
-                        cmd.Parameters.Add("@City", SqlDbType.NVarChar).Value = cityTextBox.Text;
-                        cmd.Parameters.Add("@Address", SqlDbType.NVarChar).Value = addressTextBox.Text;
-
-                        string dateInput = dateTextBox.Text.Trim();
-                        string[] dateFormats = { "ddMMyyyy", "MMddyyyy", "ddMMyyyy", "MMddyy", "MMyyyydd", "MMddyyyy" };
-                        DateTime parsedDate;
-                        if (DateTime.TryParseExact(dateInput, dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedDate))
-                        {
-                            cmd.Parameters.Add("@DateOfBirth", SqlDbType.Date).Value = parsedDate;
-                        }
-                        else
-                        {
-                            MessageBox.Show("Invalid date format. Please enter the date in a valid format.");
-                            return;
-                        }
-
-                        int rowsAffected = cmd.ExecuteNonQuery();
-
-                        if (rowsAffected > 0)
-                        {
-                            Console.WriteLine("Data inserted successfully.");
-                            this.DialogResult = DialogResult.OK;
-                            this.Close();
-                        }
-                        else
-                        {
-                            MessageBox.Show("Failed to insert data.");
-                        }
-                    }
-                }
-                else // Existing user
-                {
-                    if (!int.TryParse(_originalPersonId, out int originalId))
-                    {
-                        MessageBox.Show("Invalid original ID format.");
-                        return;
-                    }
-                    if (newId != originalId)
-                    {
-                        string checkIdQuery = "SELECT COUNT(*) FROM dbo.PersonGridData WHERE Id = @Id";
-                        using (SqlCommand checkIdCmd = new SqlCommand(checkIdQuery, connection))
-                        {
-                            checkIdCmd.Parameters.Add("@Id", SqlDbType.Int).Value = newId;
-                            int existingIdCount = (int)checkIdCmd.ExecuteScalar();
-
-                            if (existingIdCount > 0)
-                            {
-                                MessageBox.Show("ID already exists in the database. Please enter a different ID.");
-                                return;
-                            }
-                        }
-                    }
-
-                    string updateQuery = "UPDATE dbo.PersonGridData SET " +
-                                         "Id = @NewId, " +
-                                         "Picture = @Image, " +
-                                         "FirstName = @FirstName, " +
-                                         "LastName = @LastName, " +
-                                         "City = @City, " +
-                                         "Address = @Address, " +
-                                         "DateOfBirth = @DateOfBirth " +
-                                         "WHERE Id = @OriginalId";
-
-                    using (SqlCommand cmd = new SqlCommand(updateQuery, connection))
-                    {
-                        cmd.Parameters.Add("@NewId", SqlDbType.Int).Value = newId;
-                        cmd.Parameters.Add("@Image", SqlDbType.VarBinary).Value = _pictureData;
-                        cmd.Parameters.Add("@FirstName", SqlDbType.NVarChar).Value = firstNameTextBox.Text;
-                        cmd.Parameters.Add("@LastName", SqlDbType.NVarChar).Value = lastNameTextBox.Text;
-                        cmd.Parameters.Add("@City", SqlDbType.NVarChar).Value = cityTextBox.Text;
-                        cmd.Parameters.Add("@Address", SqlDbType.NVarChar).Value = addressTextBox.Text;
-
-                        string dateInput = dateTextBox.Text.Trim();
-                        string[] dateFormats = {
-    "ddMMyyyy", // 07131997
-    "MMddyyyy", // 07131997
-    "ddMMyyyy", // 13071997
-    "MMddyy",   // 071397
-    "MMyyyydd", // 07199713
-    "MMddyyyy", // 19970713
-    "dd-MM-yyyy", // 13-07-1997
-    "dd.MM.yyyy", // 13.07.1997
-    "yyyy.MM.dd", // 1997.07.13
-    "yyyy-MM-dd"  // 1997-07-13
-}; DateTime parsedDate;
-                        if (DateTime.TryParseExact(dateInput, dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedDate))
-                        {
-                            cmd.Parameters.Add("@DateOfBirth", SqlDbType.Date).Value = parsedDate;
-                        }
-                        else
-                        {
-                            MessageBox.Show("Invalid date format. Please enter the date in a valid format.");
-                            return;
-                        }
-
-                        cmd.Parameters.Add("@OriginalId", SqlDbType.Int).Value = originalId;
-
-                        int rowsAffected = cmd.ExecuteNonQuery();
-
-                        if (rowsAffected > 0)
-                        {
-                            Console.WriteLine("Data updated successfully.");
-                            this.DialogResult = DialogResult.OK;
-                            this.Close();
-                        }
-                        else
-                        {
-                            MessageBox.Show("Failed to update data.");
-                        }
-                    }
-                }
-            }
+            return true;
         }
 
         private void deleteButton_Click(object sender, EventArgs e)
         {
-            _pictureData = null;
-            personPictureBox.Image = Properties.Resources.defaultPicture;
+            // Handle delete operation if needed
         }
 
         private void uploadButton_Click(object sender, EventArgs e)
         {
-            OpenFileDialog openFileDialog = new OpenFileDialog();
-            openFileDialog.Filter = "Image Files (*.jpg; *.jpeg; *.png; *.gif; *.bmp)|*.jpg; *.jpeg; *.png; *.gif; *.bmp";
-
-            if (openFileDialog.ShowDialog() == DialogResult.OK)
+            using(OpenFileDialog ofd = new OpenFileDialog() { Filter = "JPEG|*.jpg|PNG|*.png", ValidateNames = true })
             {
-                try
+                if(ofd.ShowDialog() == DialogResult.OK)
                 {
-                    // Load the selected image into the PictureBox
-                    using (Stream stream = openFileDialog.OpenFile())
+                    personPictureBox.Image=Image.FromFile(ofd.FileName);
+                    Person obj = personBindingSource.Current as Person;
+                    if(obj != null)
                     {
-                        Image selectedImage = Image.FromStream(stream);
-                        personPictureBox.Image = selectedImage;
-
-                        // Convert the selected image to byte array and store it in _pictureData
-                        using (MemoryStream memoryStream = new MemoryStream())
-                        {
-                            selectedImage.Save(memoryStream, selectedImage.RawFormat);
-                            _pictureData = memoryStream.ToArray();
-                        }
+                        obj.Picture = ImageToByteArray(personPictureBox.Image);
                     }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Error loading the image: " + ex.Message);
                 }
             }
         }
+
+        private byte[] ImageToByteArray(Image image)
+        {
+            if (image == null)
+            {
+                return null;
+            }
+
+            using (MemoryStream ms = new MemoryStream())
+            {
+                image.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
+                return ms.ToArray();
+            }
+        }
+
+        private Image ByteToImage(byte[] byteArray)
+        {
+            if (byteArray == null)
+            {
+                return null;
+            }
+
+            using (MemoryStream ms = new MemoryStream(byteArray))
+            {
+                return Image.FromStream(ms);
+            }
+        }
+        private bool TryParseDate(string input, out DateTime parsedDate)
+        {
+            string[] dateFormats = { "MM/dd/yyyy", "ddMMyyyy", "MMddyyyy", "ddMMyyyy", "MMddyy", "MMyyyydd", "MMddyyyy" };
+            return DateTime.TryParseExact(input, dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedDate);
+        }
+
+
     }
 }

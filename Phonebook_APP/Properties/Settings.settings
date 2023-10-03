@@ -10,5 +10,8 @@
 &lt;/SerializableConnectionString&gt;</DesignTimeValue>
       <Value Profile="(Default)">Data Source=Dolev\SQLEXPRESS;Initial Catalog=Phonebook_Database;Integrated Security=True</Value>
     </Setting>
+    <Setting Name="Phonebook_APP_CRUDService_PersonService" Type="(Web Service URL)" Scope="Application">
+      <Value Profile="(Default)">https://localhost:44329/PersonService.asmx</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

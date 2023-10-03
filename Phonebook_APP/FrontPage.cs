@@ -1,169 +1,147 @@
-﻿using System;
+﻿
+using Phonebook_APP.CRUDService;
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Configuration;
-using System.Data;
-using System.Data.SqlClient;
-using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Phonebook_APP
 {
-    public partial class FrontPage : Form
+    public partial class FrontPage : MetroFramework.Forms.MetroForm
     {
-        private readonly SqlDataAdapter adapter;
-        private readonly DataTable dataTable;
-        private readonly string _connectionString;
+        EntityState objState = EntityState.Unchanged;
+        private readonly PersonService _client;
+        private List<Person> persons;
+
         public FrontPage()
         {
             InitializeComponent();
-            _connectionString = ConfigurationManager.ConnectionStrings["Phonebook_APP.Properties.Settings.Phonebook_DatabaseConnectionString"].ConnectionString;
-            // Initialize the adapter and dataTable at the class level
-            adapter = new SqlDataAdapter("SELECT * FROM dbo.PersonGridData", _connectionString);
-            dataTable = new DataTable();
-            adapter.Fill(dataTable);
-        }
-        
-        private void Front_Load(object sender, EventArgs e)
-        {
-            // TODO: This line of code loads data into the 'phonebook_DatabaseDataSet.PersonGridData' table. You can move, or remove it, as needed.
-            this.personGridDataTableAdapter.Fill(this.phonebook_DatabaseDataSet.PersonGridData);
-
-        }
-        private void SearchField_TextChanged(object sender, EventArgs e)
-        {
-            string searchKeyword = SearchField.Text.Trim();
-
-            // Filter the DataTable based on searchKeyword and specified columns
-            DataRow[] filteredRows = dataTable.Select($"FirstName LIKE '%{searchKeyword}%' OR " +
-                                                      $"LastName LIKE '%{searchKeyword}%' OR " +
-                                                      $"CONVERT(Id, 'System.String') LIKE '%{searchKeyword}%' OR " +
-                                                      $"CONVERT(DateOfBirth, 'System.String') LIKE '%{searchKeyword}%' OR " +
-                                                      $"Address LIKE '%{searchKeyword}%' OR " +
-                                                      $"City LIKE '%{searchKeyword}%'");
-
-            // Create a new DataTable with the filtered rows
-            DataTable filteredDataTable = dataTable.Clone();
-            foreach (DataRow row in filteredRows)
+            try
             {
-                filteredDataTable.ImportRow(row);
+                _client = new PersonService();
+                LoadData();
             }
+            catch (Exception ex)
+            {
+                HandleException(ex, "Error initializing client");
+            }
+        }
+        private void HandleException(Exception ex, string message)
+        {
+            MetroFramework.MetroMessageBox.Show(this, $"{message}: {ex.Message}", "Message", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
 
-            // Update the DataGridView with the filtered data
-            personsTable.DataSource = filteredDataTable;
+        private void LoadData()
+        {
+            try
+            {
+                Person[] personsArray = _client.GetAll();
+                persons = personsArray.ToList(); // Convert Person[] to List<Person>
+                personBindingSource.DataSource = persons;
+            }
+            catch (Exception ex)
+            {
+                HandleException(ex, "Error loading data");
+            }
+        }
+
+        private void DeletePerson()
+        {
+            objState = EntityState.Deleted;
+            if (MetroFramework.MetroMessageBox.Show(this, "Are you sure you want to delete this record?", "Message", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                try
+                {
+                    Person person = personBindingSource.Current as Person;
+                    if (person != null)
+                    {
+                        bool result = _client.Delete(person.Id);
+                        if (result)
+                        {
+                            objState = EntityState.Unchanged;
+                            LoadData(); // Refresh data after deletion
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    HandleException(ex, "Error deleting person");
+                }
+            }
+            objState = EntityState.Unchanged;
+        }
+        private void UpdatePerson()
+        {
+            Person selectedPerson = personBindingSource.Current as Person;
+       
+            if (selectedPerson != null)
+            {
+                EditPersonForm updating = new EditPersonForm(EntityState.Changed, selectedPerson);
+                updating.ShowDialog();
+                LoadData(); // Refresh data after update
+            }
+            else
+            {
+                MetroFramework.MetroMessageBox.Show(this, "No person is selected.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            objState = EntityState.Unchanged;
+        }
+        private void NewPerson()
+        {
+            Person newPerson = new Person();
+            EditPersonForm newPresonForm = new EditPersonForm(EntityState.Added, newPerson);
+            newPresonForm.ShowDialog();
+            LoadData(); // Refresh data after adding a new person
+            objState = EntityState.Unchanged;
         }
 
         private void deleteButton_Click(object sender, EventArgs e)
         {
-            if (personsTable.SelectedRows.Count > 0)
-            {
-                // Get the ID (primary key) of the selected row
-                string selectedId = personsTable.SelectedRows[0].Cells["Id"].Value.ToString();
-
-                // Call a method to delete the record from the database
-                DeleteRecordFromDatabase(selectedId);
-
-                // Remove the selected row from the DataGridView
-                personsTable.Rows.RemoveAt(personsTable.SelectedRows[0].Index);
-
-                MessageBox.Show("Record deleted successfully!");
-            }
-            else
-            {
-                MessageBox.Show("Please select a row to delete.");
-            }
+            DeletePerson();
         }
 
         private void updateButton_Click(object sender, EventArgs e)
         {
-            if (personsTable.SelectedRows.Count == 1)
-            {
-                // Get the DataRowView for the selected row
-                DataRowView selectedPerson = (DataRowView)personsTable.SelectedRows[0].DataBoundItem;
-
-                // Open the edit form with the selected DataRowView, SqlDataAdapter, and DataTable
-                EditPersonForm editForm = new EditPersonForm(selectedPerson);
-
-                if (editForm.ShowDialog() == DialogResult.OK)
-                {
-                    // Update the database
-                    personGridDataTableAdapter.Update(phonebook_DatabaseDataSet.PersonGridData);
-
-                    // Update the adapter
-                    adapter.Update(phonebook_DatabaseDataSet.PersonGridData);
-
-                    // Clear and refill the DataTable
-                    dataTable.Clear();
-                    adapter.Fill(dataTable);
-
-                    // Update the DataGridView
-                    personsTable.DataSource = dataTable;
-
-                    MessageBox.Show("Data updated successfully!");
-                }
-            }
-            else if (personsTable.SelectedRows.Count > 1)
-            {
-                MessageBox.Show("Please select only one row to update.");
-            }
-            else
-            {
-                MessageBox.Show("Please select a person to update.");
-            }
+            UpdatePerson();
         }
+
 
         private void newButton_Click(object sender, EventArgs e)
         {
-            EditPersonForm editForm = new EditPersonForm();
-            if (editForm.ShowDialog() == DialogResult.OK)
-            {
-                // Update the database
-                personGridDataTableAdapter.Update(phonebook_DatabaseDataSet.PersonGridData);
-
-                // Update the adapter
-                adapter.Update(phonebook_DatabaseDataSet.PersonGridData);
-
-                // Clear and refill the DataTable
-                dataTable.Clear();
-                adapter.Fill(dataTable);
-
-                // Update the DataGridView
-                personsTable.DataSource = dataTable;
-
-                MessageBox.Show("Data updated successfully!");
-            }
+            NewPerson();
         }
 
-        private void DeleteRecordFromDatabase(string id)
+        private void FrontPage_Load(object sender, EventArgs e)
         {
-            using (SqlConnection connection = new SqlConnection(_connectionString))
+            try
             {
-                // Construct the delete query with a parameter to prevent SQL injection
-                string deleteQuery = "DELETE FROM dbo.PersonGridData WHERE Id = @Id";
-
-                using (SqlCommand command = new SqlCommand(deleteQuery, connection))
-                {
-                    // Add parameter to the command
-                    command.Parameters.AddWithValue("@Id", id);
-
-                    connection.Open();
-                    int rowsAffected = command.ExecuteNonQuery();
-
-                    if (rowsAffected > 0)
-                    {
-                        // Record deleted successfully
-                        Console.WriteLine("Record deleted from the database. ID: " + id);
-                    }
-                    else
-                    {
-                        // No rows were affected, handle the case accordingly
-                        Console.WriteLine("No records deleted. Verify the provided primary key value. ID: " + id);
-                    }
-                }
+                personBindingSource.DataSource = _client.GetAll();
+            }
+            catch(Exception ex) 
+            {
+                MetroFramework.MetroMessageBox.Show(this, ex.Message, "Message", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
+        private void SearchField_TextChanged(object sender, EventArgs e)
+        {
+            string searchKeyword = SearchField.Text.Trim().ToLower();
+
+            // Filter persons based on the search keyword across multiple columns
+            var filteredPersons = persons
+                .Where(person =>
+                    person.FirstName.ToLower().Contains(searchKeyword) ||
+                    person.LastName.ToLower().Contains(searchKeyword) ||
+                    person.Id.ToString().Contains(searchKeyword) ||
+                    (person.DateOfBirth.HasValue && person.DateOfBirth.Value.ToString("MM/dd/yyyy").Contains(searchKeyword)) ||
+                    person.Address.ToLower().Contains(searchKeyword) ||
+                    person.City.ToLower().Contains(searchKeyword)
+                )
+                .ToList();
+
+            // Update the data source with the filtered list
+            personBindingSource.DataSource = filteredPersons;
+        }
+
     }
 }
